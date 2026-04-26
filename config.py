@@ -1,2 +1,2 @@
-BOT_TOKEN = "8689818495:AAGz3KY5XqpiFMDgz45D3JOqPMQh_E36REQ" # Bot tokeningiz
+BOT_TOKEN = "8605328538:AAG6hTAYg5IGr_UcjPInM9wobfzXqlUnCas" # Bot tokeningiz
 ADMINS = [8519166157] # O'zingizning Telegram ID raqamingizni shu yerga yozing
