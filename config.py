@@ -1,2 +1,8 @@
-BOT_TOKEN = "8605328538:AAG6hTAYg5IGr_UcjPInM9wobfzXqlUnCas" # Bot tokeningiz
-ADMINS = [8519166157] # O'zingizning Telegram ID raqamingizni shu yerga yozing
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+# Adminlarni vergul bilan ajratilgan stringdan listga o'tkazamiz
+ADMINS = [int(admin_id) for admin_id in os.getenv("ADMINS", "").split(",") if admin_id]

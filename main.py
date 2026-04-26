@@ -16,6 +16,10 @@ import database
 from downloader import download_video
 import time
 
+# Spamdan himoya uchun
+user_last_action = {}
+RATE_LIMIT = 5 # 5 soniyada 1 tadan ortiq xabar yuborib bo'lmaydi
+
 logging.basicConfig(level=logging.INFO)
 
 bot = Bot(token=config.BOT_TOKEN)
@@ -215,6 +219,15 @@ async def handle_text(message: Message):
 
     database.add_user(message.from_user.id)
     
+    # Anti-flood check
+    user_id = message.from_user.id
+    current_time = time.time()
+    if user_id in user_last_action:
+        if current_time - user_last_action[user_id] < RATE_LIMIT:
+            await message.answer(f"Iltimos, spam qilmang. Keyingi xabarni {int(RATE_LIMIT - (current_time - user_last_action[user_id]))} soniyadan keyin yubora olasiz.")
+            return
+    user_last_action[user_id] = current_time
+
     is_subbed = await check_subscription(message.from_user.id)
     if not is_subbed:
         await message.answer(
