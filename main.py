@@ -13,7 +13,8 @@ from aiogram.fsm.state import StatesGroup, State
 
 import config
 import database
-from downloader import download_instagram_video
+from downloader import download_video
+import time
 
 logging.basicConfig(level=logging.INFO)
 
@@ -194,7 +195,7 @@ async def process_broadcast(message: Message, state: FSMContext):
 @dp.message(AdminState.adding_channel_id)
 async def process_add_channel_id(message: Message, state: FSMContext):
     await state.update_data(channel_id=message.text)
-    await message.answer("Ajoyib, endi foydalanuvchilar ulanishi uchun ushbu kanalning taklif ssilkasini yuboring (masalan, https://t.me/kanal_user):")
+    await message.answer("Ajoyib, endi foydalanuvchilar ulanishi uchun ushbu kanalning taklif ssilkasini yozing (masalan, https://t.me/kanal_user):")
     await state.set_state(AdminState.adding_channel_url)
 
 @dp.message(AdminState.adding_channel_url)
@@ -246,11 +247,28 @@ async def handle_text(message: Message):
         
         msg = await message.answer("⏳ Video yuklanmoqda, kuting...")
         
-        # Videoni yuklab olish
-        filepath = download_instagram_video(raw_url)
-        
-        if filepath and os.path.exists(filepath):
-            try:
+        # Progress bar uchun maxsus hook funksiyasi
+        last_update = 0
+        def my_hook(d):
+            nonlocal last_update
+            if d['status'] == 'downloading':
+                current_time = time.time()
+                if current_time - last_update > 2: # Har 2 soniyada yangilash
+                    p = d.get('_percent_str', '0%')
+                    speed = d.get('_speed_str', 'N/A')
+                    eta = d.get('_eta_str', 'N/A')
+                    asyncio.run_coroutine_threadsafe(
+                        msg.edit_text(f"⏳ Yuklanmoqda: {p}\n🚀 Tezlik: {speed}\n🏁 Qoldi: {eta}"),
+                        asyncio.get_event_loop()
+                    )
+                    last_update = current_time
+
+        # Videoni yuklab olish (Non-blocking)
+        try:
+            # yt-dlp ni alohida thread da yurgizamiz
+            filepath = await asyncio.to_thread(download_video, raw_url, "downloads", my_hook)
+            
+            if filepath and os.path.exists(filepath):
                 # Videoni yuborish
                 video = FSInputFile(filepath)
                 sent_msg = await message.answer_video(video=video, caption="Bot orqali yuklab olindi.")
@@ -259,17 +277,16 @@ async def handle_text(message: Message):
                 database.add_cache(cleaned_url, sent_msg.video.file_id)
                 database.increment_downloads()
                 
-            except Exception as e:
-                logging.error(f"Error sending video: {e}")
-                await message.answer("Videoni yuborishda xatolik yuz berdi. Telegramga yuklash uchun hajm juda katta bo'lishi mumkin.")
-            finally:
                 # Local faylni tozalash
                 try:
                     os.remove(filepath)
                 except:
                     pass
-        else:
-            await message.answer("Kechirasiz, videoni yuklab olishning iloji bo'lmadi. Havolani tekshirib qaytadan urinib ko'ring yoki hisob yopiq (private) bo'lishi mumkin.")
+            else:
+                await message.answer("Kechirasiz, videoni yuklab olishning iloji bo'lmadi. Havolani tekshirib qaytadan urinib ko'ring yoki hisob yopiq (private) bo'lishi mumkin.")
+        except Exception as e:
+            logging.error(f"Download error: {e}")
+            await message.answer("Xatolik yuz berdi. Iltimos keyinroq qayta urinib ko'ring.")
             
         await msg.delete()
     else:
