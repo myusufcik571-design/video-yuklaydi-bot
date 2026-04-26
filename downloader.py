@@ -1,25 +1,21 @@
 import yt_dlp
 import os
 import logging
-import asyncio
 
 logger = logging.getLogger(__name__)
 
-def progress_hook(d, msg_placeholder, loop, bot, chat_id, message_id):
-    if d['status'] == 'downloading':
-        p = d.get('_percent_str', '0%')
-        # Telegram API limitlaridan qochish uchun har doim ham yangilamaymiz
-        # Faqat muhim foizlarda yoki vaqt o'tganda yangilash kerak
-        # Bu yerda oddiygina log qilamiz, main.py dagi handler buni boshqaradi
-        pass
-
 def download_video(url: str, output_path: str = "downloads", hook=None):
+    """
+    Videoni yuklab olish uchun universal funksiya.
+    Barcha platformalarni (Instagram, TikTok, YouTube va h.k.) qo'llab-quvvatlaydi.
+    """
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     
     ydl_opts = {
-        'format': 'best[ext=mp4]/best',
-        'outtmpl': f'{output_path}/%(id)s.%(ext)s',
+        # Eng yaxshi sifatni tanlash (video+audio)
+        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        'outtmpl': os.path.join(output_path, '%(id)s.%(ext)s'),
         'quiet': True,
         'no_warnings': True,
         'nocheckcertificate': True,
@@ -35,18 +31,22 @@ def download_video(url: str, output_path: str = "downloads", hook=None):
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # Video ma'lumotlarini olish
             info = ydl.extract_info(url, download=True)
             if not info:
                 return None
-                
+            
+            # Fayl nomini aniqlash
             filename = ydl.prepare_filename(info)
             
+            # Agar format o'zgargan bo'lsa (masalan mkv -> mp4)
             if not os.path.exists(filename):
                 base = os.path.splitext(filename)[0]
                 for ext in ['.mp4', '.mkv', '.webm', '.mov']:
                     if os.path.exists(base + ext):
                         return base + ext
+            
             return filename
     except Exception as e:
-        logger.error(f"Yuklashda xatolik: {e}")
+        logger.error(f"Download function error: {e}")
         return None
